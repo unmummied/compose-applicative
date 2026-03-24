@@ -1,11 +1,11 @@
-# The Composition of Functors/Applicatives Is Always a/an Functor/Applicative
+# Formalizing Functor/Applicative Composition in Lean 4
 A standalone formalization of Functor and Applicative laws for composed types.
 
 ## Features
-- **Self-Implementation**
+- **Self-Implementation**:
   Built from scratch using a `My`/`my` prefix, without relying on `namespace Hidden` or existing abstractions.
-- **Different Approach from Mathlib4**
-  Unlike the implementation in Mathlib4, this project assumes the **uniqueness of Functor instances as an axiom**, leading to a structurally different proof strategy.
+- **Different Approach from `mathlib4`**:
+  Unlike the implementation in `mathlib4`, this project assumes the **uniqueness of Functor instances as an axiom**, leading to a structurally different proof strategy.
 
 ## Verified Laws
 - **Functor**
