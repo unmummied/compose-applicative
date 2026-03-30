@@ -1,171 +1,149 @@
-class MyFunctor (T : Type → Type) where
-  myMap : (α → β) → T α → T β
+namespace Hidden
 
-open MyFunctor
+class Functor (T : Type → Type) where
+  map : (α → β) → T α → T β
 
-class LawfulMyFunctor (T : Type → Type) [MyFunctor T] where
-  /-- The identity law of Functor -/
-  id_myMap (x : T α) :
-    myMap id x = x
+export Functor (map)
 
-  /-- The composition law of Functor -/
-  comp_myMap (f : β → γ) (g : α → β) (x : T α) :
-    myMap f (myMap g x) = myMap (f ∘ g) x
+class LawfulFunctor (T : Type → Type) [Functor T] where
+  id_map (x : T α) :
+    map id x = x
 
-open LawfulMyFunctor
+  comp_map (f : β → γ) (g : α → β) (x : T α) :
+    map f (map g x) = map (f ∘ g) x
 
-/-- Uniqueness of map -/
-axiom uniq_myMap
-    (F F' : MyFunctor T)
-    (L : @LawfulMyFunctor _ F) (L' : @LawfulMyFunctor _ F')
-    (f : α → β) (x : T α) :
-  F.myMap f x = F'.myMap f x
+export LawfulFunctor (id_map comp_map)
+attribute [simp] id_map
+attribute [simp] comp_map
 
-class MyApplicative (T : Type → Type) extends MyFunctor T where
-  myPure : α → T α
-  mySeq : T (α → β) → T α → T β
+axiom uniq_map
+  (_ : @LawfulFunctor T F₁) (_ : @LawfulFunctor T F₂)
+  (f : α → β) (v : T α) : F₁.map f v = F₂.map f v
 
-open MyApplicative
-infixl:60 (priority:=high) " <*> " => mySeq
+class Applicative (T : Type → Type) extends Functor T where
+  pure : α → T α
+  seq : T (α → β) → T α → T β
 
-class LawfulMyApplicative
-    (T : Type → Type) [MyApplicative T] extends LawfulMyFunctor T where
-  /-- The identity law of Applicative -/
-  id_myPure (x : T α) :
-    myPure id <*> x = x
+export Applicative (pure seq)
+infixl:60 (priority := high) " <*> " => seq
 
-  /-- The homomorphism law of Applicative -/
-  myMap_myPure (f : α → β) (x : α) :
-    myPure f <*> (myPure x : T α) = myPure (f x)
+class LawfulApplicative (T : Type → Type) [Applicative T] extends LawfulFunctor T where
+  id_pure (v : T α) :
+    pure id <*> v = v
 
-  /-- The interchange law of Applicative -/
-  mySeq_myPure (x : T (α → β)) (y : α) :
-    x <*> myPure y = myPure (· <| y) <*> x
+  map_pure (f : α → β) (x : α) :
+    pure f <*> (pure x : T α) = pure (f x)
 
-  /-- The composition law of Applicative -/
-  mySeq_assoc (x : T (β → γ)) (y : T (α → β)) (z : T α) :
-    x <*> (y <*> z) = myPure (· ∘ ·) <*> x <*> y <*> z
+  seq_pure (u : T (α → β)) (y : α) :
+    u <*> pure y = pure (· y) <*> u
 
-open LawfulMyApplicative
+  seq_assoc (u : T (β → γ)) (v : T (α → β)) (w : T α) :
+    u <*> (v <*> w) = pure (· ∘ ·) <*> u <*> v <*> w
 
-@[simp]
-theorem myPure_mySeq
-    [F : MyApplicative T] [L : LawfulMyApplicative T]
-    (f : α → β) (x : T α) :
-    myPure f <*> x = myMap f x := by
+export LawfulApplicative (id_pure map_pure seq_pure seq_assoc)
+attribute [simp] id_pure
+attribute [simp] map_pure
+attribute [simp] seq_assoc
 
-  have {α β γ} (g : β → γ) (g' : α → β) (y : T α) :
-      myPure g <*> (myPure g' <*> y) = myPure (g ∘ g') <*> y := by
-    simp only [myMap_myPure, mySeq_assoc]
+theorem pure_seq [Applicative T] [L : LawfulApplicative T]
+    (f : α → β) (x : T α) : pure f <*> x = map f x := by
 
-  let F' : MyFunctor T := ⟨(myPure · <*> ·)⟩
-  have L' : @LawfulMyFunctor _ F' := by
+  let F' : Functor T := ⟨(pure · <*> ·)⟩
+  have L' : @LawfulFunctor T F' := by
     constructor
 
-    · intros _ x'
-      show myPure id <*> x' = x'
-      rw [id_myPure]
+    · intro _ x'
+      show pure id <*> x' = x'
+      exact id_pure _
 
-    · intros _ _ _ g g' y
-      show myPure g <*> (myPure g' <*> y) = myPure (g ∘ g') <*> y
-      exact this _ _ _
+    · intro _ _ _ g₁ g₂ y
+      show pure g₁ <*> (pure g₂ <*> y) = pure (g₁ ∘ g₂) <*> y
+      simp
 
-  exact (uniq_myMap F.toMyFunctor F' L.toLawfulMyFunctor L' _ _).symm
+  exact (uniq_map L.toLawfulFunctor L' _ _).symm
 
-@[simp]
-theorem shortcut
-    [F : MyApplicative T] [L : LawfulMyApplicative T]
+theorem pure_seq_pure_seq
+    [Applicative T] [LawfulApplicative T]
     (f : β → γ) (g : α → β) (x : T α) :
-    myPure f <*> (myPure g <*> x) = myPure (f ∘ g) <*> x := by
-  rw [mySeq_assoc]
-  repeat rw [myMap_myPure]
+    pure f <*> (pure g <*> x) = pure (f ∘ g) <*> x := by
+  simp
 
-def MyComp (T T' : Type → Type) (α : Type) := T (T' α)
+def Comp (T₁ T₂ : Type → Type) (α : Type) := T₁ (T₂ α)
 
-instance [F : MyFunctor T] [F' : MyFunctor T'] :
-    MyFunctor (MyComp T T') where
-  myMap f x := F.myMap (F'.myMap f) x
-
-instance
-    [F : MyFunctor T] [F' : MyFunctor T']
-    [L : LawfulMyFunctor T] [L' : LawfulMyFunctor T'] :
-    LawfulMyFunctor (MyComp T T') where
-  id_myMap := by
-    intros _ x
-    show myMap (myMap id) x = x
-    rw [show myMap id = id from by exact funext id_myMap]
-    rw [id_myMap]
-
-  comp_myMap := by
-    intros _ _ _ f g x
-    show myMap (myMap f) (myMap (myMap g) x) = myMap (myMap (f ∘ g)) x
-    rw [comp_myMap]
-    rw [show myMap f ∘ myMap g = myMap (f ∘ g) from by exact funext (comp_myMap _ _)]
-
-instance [F : MyApplicative T] [F' : MyApplicative T'] :
-    MyApplicative (MyComp T T') where
-  myPure x := F.myPure (F'.myPure x)
-  mySeq f x := F.mySeq (F.mySeq (F.myPure F'.mySeq) f) x
+instance [F₁ : Functor T₁] [F₂ : Functor T₂] :
+    Functor (Comp T₁ T₂) where
+  map f x := F₁.map (F₂.map f) x
 
 instance
-    [F : MyApplicative T] [F' : MyApplicative T']
-    [L : LawfulMyApplicative T] [L' : LawfulMyApplicative T'] :
-    LawfulMyApplicative (MyComp T T') where
-  id_myPure := by
-    intros _ x
-    show myPure (· <*> ·) <*> myPure (myPure id) <*> x = x
-    rw [myMap_myPure]
-    simp [myPure_mySeq, id_myMap]
-    rw [show (fun y => y) = id from by exact List.map_inj.mp rfl]
-    rw [id_myMap]
+    [Functor T₁] [Functor T₂]
+    [LawfulFunctor T₁] [LawfulFunctor T₂] :
+    LawfulFunctor (Comp T₁ T₂) where
+  id_map := by
+    intro _ x
+    show map (map id) x = x
+    rw [show map id = id from by exact funext id_map]
+    exact id_map _
 
-  myMap_myPure := by
-    intros _ _ f x
+  comp_map := by
+    intro _ _ _ f g x
+    show map (map f) (map (map g) x) = map (map (f ∘ g)) x
+    simp
+    rw [show map f ∘ map g = map (f ∘ g) from by funext; simp]
+
+instance [F₁ : Applicative T₁] [F₂ : Applicative T₂] :
+    Applicative (Comp T₁ T₂) where
+  pure x := F₁.pure (F₂.pure x)
+  seq f x := F₁.seq (F₁.seq (F₁.pure F₂.seq) f) x
+
+instance
+    [F₁ : Applicative T₁] [F₂ : Applicative T₂]
+    [L₁ : LawfulApplicative T₁] [L₂ : LawfulApplicative T₂] :
+    LawfulApplicative (Comp T₁ T₂) where
+  id_pure := by
+    intro _ x
+    show pure (· <*> ·) <*> pure (pure id) <*> x = x
+    simp
+    rw [show (fun y => y) = id from rfl]
+    exact id_pure _
+
+  map_pure := by
+    intro _ _ f x
+    show pure (· <*> ·) <*> pure (pure f) <*> pure (pure x) = pure (pure (f x))
+    simp [map_pure]
+
+  seq_pure := by
+    intro _ _ x y
+    show pure (· <*> ·) <*> x <*> pure (pure y) = pure (· <*> ·) <*> pure (pure (· y)) <*> x
+    rw [seq_pure]
+    simp
+    guard_target =ₛ pure ((· (pure y)) ∘ (· <*> ·)) <*> x = pure (pure (· y) <*> ·) <*> x
+
+    rw [congrArg (fun f => F₁.pure f)]
+    show (· <*> pure y) = (pure (· y) <*> ·)
+
+    ext
+    exact seq_pure _ _
+
+  seq_assoc := by
+    intro _ _ _ x y z
     show
-      myPure (· <*> ·) <*> (myPure (myPure f)) <*> (myPure (myPure x)) =
-        myPure (myPure (f x))
-    repeat rw [myMap_myPure]
-
-  mySeq_myPure := by
-    intros α β x y
-    show
-      myPure (· <*> ·) <*> x <*> myPure (myPure y) =
-        myPure (· <*> ·) <*> myPure (myPure (· y)) <*> x
-    rw [mySeq_myPure, myMap_myPure, shortcut]
-    simp [myPure_mySeq]
-
-    show myMap ((· (myPure y)) ∘ (· <*> ·)) x = myMap (myMap (· y) ·) x
-    rw [congrArg (fun f : T' (α → β) → T' β => myMap f x)]
-
-    show (fun z : T' (α → β) => z <*> myPure y) = (myMap (· y) ·)
-    ext _
-    rw [mySeq_myPure, myPure_mySeq]
-
-  mySeq_assoc := by
-    intros β γ α x y z
-    show
-      myPure (· <*> ·) <*> x <*> (myPure (· <*> ·) <*> y <*> z) =
-        myPure (· <*> ·) <*> (
-          myPure (· <*> ·) <*> (
-            myPure (· <*> ·) <*> myPure (myPure (· ∘ ·)) <*> x
+      pure (· <*> ·) <*> x <*> (pure (· <*> ·) <*> y <*> z) =
+        pure (· <*> ·) <*> (
+          pure (· <*> ·) <*> (
+            pure (· <*> ·) <*> pure (pure (· ∘ ·)) <*> x
           ) <*> y
         ) <*> z
-    rw [myMap_myPure]
-    simp only [mySeq_assoc, myMap_myPure]
-    rw [mySeq_myPure, shortcut]
+    simp
+    rw [seq_pure]
+    rw [pure_seq_pure_seq]
+    guard_target =ₛ
+      pure ((· (· <*> ·)) ∘ (· ∘ ·) ∘ (· ∘ ·) ∘ (· <*> ·)) <*> x <*> y <*> z =
+        pure (((· <*> ·) ∘ ·) ∘ (· <*> ·) ∘ (pure (· ∘ ·) <*> ·)) <*> x <*> y <*> z
 
-    show
-      myPure ((· (· <*> ·)) ∘ (· ∘ ·) ∘ (· ∘ ·) ∘ (· <*> ·)) <*> x <*> y <*> z =
-        myPure (((· <*> ·) ∘ ·) ∘ (· <*> ·) ∘ (myPure (· ∘ ·) <*> ·)) <*> x <*> y <*> z
+    rw [congrArg (fun f => F₁.pure f <*> x <*> y <*> z)]
+    show (fun u v w => u <*> (v <*> w)) = (fun u v w => pure (· ∘ ·) <*> u <*> v <*> w)
 
-    rw [congrArg (fun f : T' (β → γ) → T' (α → β) → T' α → T' γ => myPure f <*> x <*> y <*> z)]
-    show
-      (fun u v w => u <*> (v <*> w)) = (fun u v w => myPure (· ∘ ·) <*> u <*> v <*> w)
+    ext
+    exact seq_assoc _ _ _
 
-    ext _ _ _
-    exact mySeq_assoc _ _ _
-
-example {α : Type} {t : Type → Type}
-    (f : (α → α) → t α → t α)
-    (h : ∀ (y : t α), f id y = y) : f id = id := by
-  exact funext h
+end Hidden
