@@ -6,8 +6,9 @@ axiom uniq_map
   (_ : @LawfulFunctor T F₁) (_ : @LawfulFunctor T F₂)
   (f : α → β) (v : T α) : F₁.map f v = F₂.map f v
 
-theorem pure_seq [Applicative T] [L : LawfulApplicative T]
-    (f : α → β) (x : T α) : pure f <*> x = map f x := by
+theorem pure_seq
+    [Applicative T] [L : LawfulApplicative T] (f : α → β) (x : T α) :
+    pure f <*> x = map f x := by
 
   let F' : Functor T := ⟨(pure · <*> ·)⟩
   have L' : @LawfulFunctor T F' := by
