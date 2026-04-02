@@ -17,9 +17,8 @@ This project is a faithful implementation of Haskell's standard type class laws 
   - `seq_pure`
   - `seq_assoc`
   - `pure_seq`
-  - `pure_seq_pure_seq` (a custom auxiliary law used in proofs)
 
 ## Build
 ```bash
-lake build -v --log-level=warning
+lake build --log-level=warning
 ```
